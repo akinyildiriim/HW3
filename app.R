@@ -1,10 +1,19 @@
 library(shiny)
+library(datasets)
 
-# Define UI for app that draws a histogram ----
+# Data pre-processing ----
+# Tweak the "am" variable to have nicer factor labels -- since this
+# doesn't rely on any user inputs, we can do this once at startup
+# and then use the value throughout the lifetime of the app
+mpgData <- mtcars
+mpgData$am <- factor(mpgData$am, labels = c("Automatic", "Manual"))
+
+
+# Define UI for miles per gallon app ----
 ui <- fluidPage(
   
   # App title ----
-  titlePanel("Class Exercises - Hello Shiny!"),
+  titlePanel("Miles Per Gallon"),
   
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
@@ -12,47 +21,54 @@ ui <- fluidPage(
     # Sidebar panel for inputs ----
     sidebarPanel(
       
-      # Input: Slider for the number of bins ----
-      sliderInput(inputId = "bins",
-                  label = "Number of bins:",
-                  min = 5,
-                  max = 50,
-                  value = 30)
+      # Input: Selector for variable to plot against mpg ----
+      selectInput("variable", "Variable:",
+                  c("Cylinders" = "cyl",
+                    "Transmission" = "am",
+                    "Gears" = "gear"))
+      
+      # Input: Checkbox for whether outliers should be included ----
+      
       
     ),
     
     # Main panel for displaying outputs ----
     mainPanel(
       
-      # Output: Histogram ----
-      plotOutput(outputId = "distPlot")
+      # Output: Formatted text for caption ----
+      h3(textOutput("caption")),
+      
+      # Output: Plot of the requested variable against mpg ----
+      plotOutput("mpgPlot")
       
     )
   )
 )
 
-# Define server logic required to draw a histogram ----
+# Define server logic to plot various variables against mpg ----
 server <- function(input, output) {
   
-  # Histogram of the Old Faithful Geyser Data ----
-  # with requested number of bins
-  # This expression that generates a histogram is wrapped in a call
-  # to renderPlot to indicate that:
-  #
-  # 1. It is "reactive" and therefore should be automatically
-  #    re-executed when inputs (input$bins) change
-  # 2. Its output type is a plot
-  output$distPlot <- renderPlot({
-    
-    x    <- faithful$waiting
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
-    
-    hist(x, breaks = bins, col = "#75AADB", border = "orange",
-         xlab = "Waiting time to next eruption (in mins)",
-         main = "Histogram of waiting times")
-    
+  # Compute the formula text ----
+  # This is in a reactive expression since it is shared by the
+  # output$caption and output$mpgPlot functions
+  formulaText <- reactive({
+    paste("mpg ~", input$variable)
+  })
+  
+  # Return the formula text for printing as a caption ----
+  output$caption <- renderText({
+    formulaText()
+  })
+  
+  # Generate a plot of the requested variable against mpg ----
+  # and only exclude outliers if requested
+  output$mpgPlot <- renderPlot({
+    ggplot(mtcars, aes(mpg)) + 
+      geom_histogram(binwidth=5,col="white", fill="steelblue") + 
+      facet_wrap(  ~mpgData[[input$variable]] , nrow = 3)
   })
   
 }
 
-shinyApp(ui = ui, server = server)
+# Create Shiny app ----
+shinyApp(ui, server)
